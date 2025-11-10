@@ -1,0 +1,49 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "mysql"
+  url      = env("DATABASE_URL")
+}
+
+model User {
+  id        Int      @id @default(autoincrement())
+  username  String   @unique
+  password  String
+  role      Role     @default(USER)
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+  orders    Order[]
+}
+
+model Order {
+  id          Int      @id @default(autoincrement())
+  userId      Int?
+  user        User?    @relation(fields: [userId], references: [id])
+  amount      Int
+  discount    Float    @default(0)
+  finalAmount Float
+  status      OrderStatus @default(PENDING)
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+  // New fields for top-up method and game credentials
+  topupMethod String?  // "login" or "playerid"
+  gameUsername String?
+  gamePassword String?
+  playerId     String?
+  estimatedTime String? // Processing time estimate
+  paymentId    String?  // For payment gateway integration
+  paymentStatus String? @default("PENDING")
+}
+
+enum Role {
+  USER
+  ADMIN
+}
+
+enum OrderStatus {
+  PENDING
+  COMPLETED
+  FAILED
+}
