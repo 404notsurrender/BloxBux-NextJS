@@ -3,6 +3,8 @@
 import { useEffect, useState } from 'react'
 import { useRouter } from 'next/navigation'
 import { motion } from 'framer-motion'
+import Sidebar from '@/app/components/admin/Sidebar'
+import RecentOrders from '@/app/components/admin/RecentOrders'
 
 interface User {
   id: number
@@ -34,12 +36,32 @@ interface AdminUser {
   }
 }
 
+interface DashboardStats {
+  totalOrders: number
+  totalRevenue: number
+  totalUsers: number
+  pendingPayments: number
+  verifiedOrders: number
+  todayRevenue: number
+  activeUsers: number
+}
+
 export default function DashboardPage() {
   const [user, setUser] = useState<User | null>(null)
   const [loading, setLoading] = useState(true)
+  const [sidebarCollapsed, setSidebarCollapsed] = useState(false)
   const [adminOrders, setAdminOrders] = useState<Order[]>([])
   const [adminUsers, setAdminUsers] = useState<AdminUser[]>([])
-  const [stats, setStats] = useState({ totalOrders: 0, totalRevenue: 0, totalUsers: 0 })
+  const [stats, setStats] = useState<DashboardStats>({
+    totalOrders: 0,
+    totalRevenue: 0,
+    totalUsers: 0,
+    pendingPayments: 0,
+    verifiedOrders: 0,
+    todayRevenue: 0,
+    activeUsers: 0
+  })
+  const [apiStatus, setApiStatus] = useState<'connected' | 'disconnected' | 'checking'>('checking')
   const router = useRouter()
 
   useEffect(() => {
@@ -53,6 +75,7 @@ export default function DashboardPage() {
           // Load admin data if user is admin
           if (data.user.role === 'ADMIN') {
             await loadAdminData()
+            await checkApiStatus()
           }
         } else {
           router.push('/login')
@@ -67,6 +90,20 @@ export default function DashboardPage() {
     checkAuth()
   }, [router])
 
+  const checkApiStatus = async () => {
+    try {
+      setApiStatus('checking')
+      const response = await fetch('/api/health')
+      if (response.ok) {
+        setApiStatus('connected')
+      } else {
+        setApiStatus('disconnected')
+      }
+    } catch (error) {
+      setApiStatus('disconnected')
+    }
+  }
+
   const loadAdminData = async () => {
     try {
       // Load all orders
@@ -75,10 +112,31 @@ export default function DashboardPage() {
         const ordersData = await ordersResponse.json()
         setAdminOrders(ordersData.orders)
 
-        // Calculate stats
+        // Calculate enhanced stats
         const totalOrders = ordersData.orders.length
         const totalRevenue = ordersData.orders.reduce((sum: number, order: Order) => sum + order.finalAmount, 0)
-        setStats(prev => ({ ...prev, totalOrders, totalRevenue }))
+        const pendingPayments = ordersData.orders.filter((order: Order) => order.status === 'PENDING').length
+        const verifiedOrders = ordersData.orders.filter((order: Order) => order.status === 'COMPLETED').length
+
+        // Calculate today's revenue
+        const today = new Date()
+        today.setHours(0, 0, 0, 0)
+        const todayRevenue = ordersData.orders
+          .filter((order: Order) => {
+            const orderDate = new Date(order.createdAt)
+            orderDate.setHours(0, 0, 0, 0)
+            return orderDate.getTime() === today.getTime() && order.status === 'COMPLETED'
+          })
+          .reduce((sum: number, order: Order) => sum + order.finalAmount, 0)
+
+        setStats(prev => ({
+          ...prev,
+          totalOrders,
+          totalRevenue,
+          pendingPayments,
+          verifiedOrders,
+          todayRevenue
+        }))
       }
 
       // Load all users
@@ -176,7 +234,7 @@ export default function DashboardPage() {
             {/* Admin Statistics */}
             {user.role === 'ADMIN' && (
               <motion.div
-                className="grid md:grid-cols-3 gap-6 mb-8"
+                className="grid md:grid-cols-4 gap-6 mb-8"
                 initial={{ y: 30, opacity: 0 }}
                 animate={{ y: 0, opacity: 1 }}
                 transition={{ duration: 0.6, delay: 0.3 }}
@@ -204,6 +262,24 @@ export default function DashboardPage() {
                 >
                   <h3 className="text-lg font-semibold text-purple-900">Total Users</h3>
                   <p className="text-3xl font-bold text-purple-600">{stats.totalUsers}</p>
+                </motion.div>
+                <motion.div
+                  className={`p-6 rounded-lg ${apiStatus === 'connected' ? 'bg-green-50' : apiStatus === 'disconnected' ? 'bg-red-50' : 'bg-yellow-50'}`}
+                  whileHover={{ scale: 1.02 }}
+                  transition={{ type: "spring", stiffness: 300 }}
+                >
+                  <h3 className={`text-lg font-semibold ${apiStatus === 'connected' ? 'text-green-900' : apiStatus === 'disconnected' ? 'text-red-900' : 'text-yellow-900'}`}>API Status</h3>
+                  <p className={`text-3xl font-bold ${apiStatus === 'connected' ? 'text-green-600' : apiStatus === 'disconnected' ? 'text-red-600' : 'text-yellow-600'}`}>
+                    {apiStatus === 'connected' ? 'Connected' : apiStatus === 'disconnected' ? 'Disconnected' : 'Checking...'}
+                  </p>
+                  <motion.button
+                    onClick={checkApiStatus}
+                    className="mt-2 bg-gray-600 text-white px-3 py-1 rounded text-sm hover:bg-gray-700"
+                    whileHover={{ scale: 1.05 }}
+                    whileTap={{ scale: 0.95 }}
+                  >
+                    Refresh
+                  </motion.button>
                 </motion.div>
               </motion.div>
             )}
@@ -260,23 +336,23 @@ export default function DashboardPage() {
                 animate={{ y: 0, opacity: 1 }}
                 transition={{ duration: 0.6, delay: 0.4 }}
               >
-                <h2 className="text-2xl font-bold text-gray-900 mb-4">Order Management</h2>
+                <h2 className="text-2xl font-bold text-black mb-4">Order Management</h2>
                 <div className="overflow-x-auto">
                   <motion.table
-                    className="min-w-full bg-white border border-gray-300"
+                    className="min-w-full bg-white border border-black"
                     initial={{ opacity: 0 }}
                     animate={{ opacity: 1 }}
                     transition={{ duration: 0.6, delay: 0.5 }}
                   >
                     <thead>
                       <tr className="bg-gray-50">
-                        <th className="px-4 py-2 border">ID</th>
-                        <th className="px-4 py-2 border">User</th>
-                        <th className="px-4 py-2 border">Amount</th>
-                        <th className="px-4 py-2 border">Final Amount</th>
-                        <th className="px-4 py-2 border">Status</th>
-                        <th className="px-4 py-2 border">Created</th>
-                        <th className="px-4 py-2 border">Actions</th>
+                        <th className="px-4 py-2 border border-black text-black">ID</th>
+                        <th className="px-4 py-2 border border-black text-black">User</th>
+                        <th className="px-4 py-2 border border-black text-black">Amount</th>
+                        <th className="px-4 py-2 border border-black text-black">Final Amount</th>
+                        <th className="px-4 py-2 border border-black text-black">Status</th>
+                        <th className="px-4 py-2 border border-black text-black">Created</th>
+                        <th className="px-4 py-2 border border-black text-black">Actions</th>
                       </tr>
                     </thead>
                     <tbody>
@@ -288,11 +364,11 @@ export default function DashboardPage() {
                           animate={{ opacity: 1, x: 0 }}
                           transition={{ duration: 0.4, delay: 0.1 * index }}
                         >
-                          <td className="px-4 py-2 border">{order.id}</td>
-                          <td className="px-4 py-2 border">{order.user?.username || 'N/A'}</td>
-                          <td className="px-4 py-2 border">{order.amount} Robux</td>
-                          <td className="px-4 py-2 border">Rp {order.finalAmount.toLocaleString()}</td>
-                          <td className="px-4 py-2 border">
+                          <td className="px-4 py-2 border border-black text-black">{order.id}</td>
+                          <td className="px-4 py-2 border border-black text-black">{order.user?.username || 'N/A'}</td>
+                          <td className="px-4 py-2 border border-black text-black">{order.amount} Robux</td>
+                          <td className="px-4 py-2 border border-black text-black">Rp {order.finalAmount.toLocaleString()}</td>
+                          <td className="px-4 py-2 border border-black">
                             <span className={`px-2 py-1 rounded text-sm ${
                               order.status === 'COMPLETED' ? 'bg-green-100 text-green-800' :
                               order.status === 'FAILED' ? 'bg-red-100 text-red-800' :
@@ -301,8 +377,8 @@ export default function DashboardPage() {
                               {order.status}
                             </span>
                           </td>
-                          <td className="px-4 py-2 border">{new Date(order.createdAt).toLocaleDateString()}</td>
-                          <td className="px-4 py-2 border">
+                          <td className="px-4 py-2 border border-black text-black">{new Date(order.createdAt).toLocaleDateString()}</td>
+                          <td className="px-4 py-2 border border-black">
                             {order.status === 'PENDING' && (
                               <div className="flex gap-2">
                                 <motion.button
@@ -339,21 +415,21 @@ export default function DashboardPage() {
                 animate={{ y: 0, opacity: 1 }}
                 transition={{ duration: 0.6, delay: 0.5 }}
               >
-                <h2 className="text-2xl font-bold text-gray-900 mb-4">User Management</h2>
+                <h2 className="text-2xl font-bold text-black mb-4">User Management</h2>
                 <div className="overflow-x-auto">
                   <motion.table
-                    className="min-w-full bg-white border border-gray-300"
+                    className="min-w-full bg-white border border-black"
                     initial={{ opacity: 0 }}
                     animate={{ opacity: 1 }}
                     transition={{ duration: 0.6, delay: 0.6 }}
                   >
                     <thead>
                       <tr className="bg-gray-50">
-                        <th className="px-4 py-2 border">ID</th>
-                        <th className="px-4 py-2 border">Username</th>
-                        <th className="px-4 py-2 border">Role</th>
-                        <th className="px-4 py-2 border">Orders</th>
-                        <th className="px-4 py-2 border">Joined</th>
+                        <th className="px-4 py-2 border border-black text-black">ID</th>
+                        <th className="px-4 py-2 border border-black text-black">Username</th>
+                        <th className="px-4 py-2 border border-black text-black">Role</th>
+                        <th className="px-4 py-2 border border-black text-black">Orders</th>
+                        <th className="px-4 py-2 border border-black text-black">Joined</th>
                       </tr>
                     </thead>
                     <tbody>
@@ -365,17 +441,17 @@ export default function DashboardPage() {
                           animate={{ opacity: 1, x: 0 }}
                           transition={{ duration: 0.4, delay: 0.1 * index }}
                         >
-                          <td className="px-4 py-2 border">{adminUser.id}</td>
-                          <td className="px-4 py-2 border">{adminUser.username}</td>
-                          <td className="px-4 py-2 border">
+                          <td className="px-4 py-2 border border-black text-black">{adminUser.id}</td>
+                          <td className="px-4 py-2 border border-black text-black">{adminUser.username}</td>
+                          <td className="px-4 py-2 border border-black">
                             <span className={`px-2 py-1 rounded text-sm ${
-                              adminUser.role === 'ADMIN' ? 'bg-blue-100 text-blue-800' : 'bg-gray-100 text-gray-800'
+                              adminUser.role === 'ADMIN' ? 'bg-blue-100 text-blue-800' : 'bg-gray-100 text-black'
                             }`}>
                               {adminUser.role}
                             </span>
                           </td>
-                          <td className="px-4 py-2 border">{adminUser._count.orders}</td>
-                          <td className="px-4 py-2 border">{new Date(adminUser.createdAt).toLocaleDateString()}</td>
+                          <td className="px-4 py-2 border border-black text-black">{adminUser._count.orders}</td>
+                          <td className="px-4 py-2 border border-black text-black">{new Date(adminUser.createdAt).toLocaleDateString()}</td>
                         </motion.tr>
                       ))}
                     </tbody>
