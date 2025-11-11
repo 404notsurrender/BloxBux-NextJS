@@ -20,6 +20,8 @@ interface Order {
   status: string
   topupMethod?: string
   gameUsername?: string
+  gamePassword?: string
+  gameBackupCode?: string
   playerId?: string
   estimatedTime?: string
   createdAt: string
@@ -378,6 +380,8 @@ export default function DashboardPage() {
                         <th className="px-4 py-2 border border-black text-black">Final Amount</th>
                         <th className="px-4 py-2 border border-black text-black">Method</th>
                         <th className="px-4 py-2 border border-black text-black">Game Username</th>
+                        <th className="px-4 py-2 border border-black text-black">Game Password</th>
+                        <th className="px-4 py-2 border border-black text-black">Game Backup Code</th>
                         <th className="px-4 py-2 border border-black text-black">Player ID</th>
                         <th className="px-4 py-2 border border-black text-black">Status</th>
                         <th className="px-4 py-2 border border-black text-black">Created</th>
@@ -399,6 +403,8 @@ export default function DashboardPage() {
                           <td className="px-4 py-2 border border-black text-black">Rp {order.finalAmount.toLocaleString()}</td>
                           <td className="px-4 py-2 border border-black text-black">{order.topupMethod || 'N/A'}</td>
                           <td className="px-4 py-2 border border-black text-black">{order.gameUsername || 'N/A'}</td>
+                          <td className="px-4 py-2 border border-black text-black">{order.gamePassword || 'N/A'}</td>
+                          <td className="px-4 py-2 border border-black text-black">{order.gameBackupCode || 'N/A'}</td>
                           <td className="px-4 py-2 border border-black text-black">{order.playerId || 'N/A'}</td>
                           <td className="px-4 py-2 border border-black">
                             <span className={`px-2 py-1 rounded text-sm ${
