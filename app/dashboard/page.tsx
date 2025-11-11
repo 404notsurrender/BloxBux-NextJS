@@ -115,7 +115,7 @@ export default function DashboardPage() {
         // Calculate enhanced stats
         const totalOrders = ordersData.orders.length
         const totalRevenue = ordersData.orders.reduce((sum: number, order: Order) => sum + order.finalAmount, 0)
-        const pendingPayments = ordersData.orders.filter((order: Order) => order.status === 'PENDING').length
+        const pendingPayments = ordersData.orders.filter((order: Order) => order.status === 'PENDING' || order.status === 'FAILED').length
         const verifiedOrders = ordersData.orders.filter((order: Order) => order.status === 'COMPLETED').length
 
         // Calculate today's revenue
@@ -234,7 +234,7 @@ export default function DashboardPage() {
             {/* Admin Statistics */}
             {user.role === 'ADMIN' && (
               <motion.div
-                className="grid md:grid-cols-4 gap-6 mb-8"
+                className="grid grid-cols-2 md:grid-cols-4 gap-6 mb-8"
                 initial={{ y: 30, opacity: 0 }}
                 animate={{ y: 0, opacity: 1 }}
                 transition={{ duration: 0.6, delay: 0.3 }}
@@ -262,6 +262,30 @@ export default function DashboardPage() {
                 >
                   <h3 className="text-lg font-semibold text-purple-900">Total Users</h3>
                   <p className="text-3xl font-bold text-purple-600">{stats.totalUsers}</p>
+                </motion.div>
+                <motion.div
+                  className="bg-yellow-50 p-6 rounded-lg"
+                  whileHover={{ scale: 1.02 }}
+                  transition={{ type: "spring", stiffness: 300 }}
+                >
+                  <h3 className="text-lg font-semibold text-yellow-900">Pending Payments</h3>
+                  <p className="text-3xl font-bold text-yellow-600">{stats.pendingPayments}</p>
+                </motion.div>
+                <motion.div
+                  className="bg-indigo-50 p-6 rounded-lg"
+                  whileHover={{ scale: 1.02 }}
+                  transition={{ type: "spring", stiffness: 300 }}
+                >
+                  <h3 className="text-lg font-semibold text-indigo-900">Verified Orders</h3>
+                  <p className="text-3xl font-bold text-indigo-600">{stats.verifiedOrders}</p>
+                </motion.div>
+                <motion.div
+                  className="bg-orange-50 p-6 rounded-lg"
+                  whileHover={{ scale: 1.02 }}
+                  transition={{ type: "spring", stiffness: 300 }}
+                >
+                  <h3 className="text-sm font-semibold text-orange-900">Today's Revenue</h3>
+                  <p className="text-2xl font-bold text-orange-600">Rp {stats.todayRevenue.toLocaleString()}</p>
                 </motion.div>
                 <motion.div
                   className={`p-6 rounded-lg ${apiStatus === 'connected' ? 'bg-green-50' : apiStatus === 'disconnected' ? 'bg-red-50' : 'bg-yellow-50'}`}
@@ -379,7 +403,7 @@ export default function DashboardPage() {
                           </td>
                           <td className="px-4 py-2 border border-black text-black">{new Date(order.createdAt).toLocaleDateString()}</td>
                           <td className="px-4 py-2 border border-black">
-                            {order.status === 'PENDING' && (
+                            {(order.status === 'PENDING' || order.status === 'FAILED') && (
                               <div className="flex gap-2">
                                 <motion.button
                                   onClick={() => updateOrderStatus(order.id, 'COMPLETED')}
