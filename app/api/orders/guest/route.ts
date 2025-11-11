@@ -3,7 +3,7 @@ import { prisma } from '@/lib/prisma'
 
 export async function POST(request: NextRequest) {
   try {
-    const { amount, price, discount, finalAmount } = await request.json()
+    const { amount, price, discount, finalAmount, topupMethod, gameUsername, gamePassword, gameBackupCode, playerId, estimatedTime } = await request.json()
 
     if (!amount || !price || discount === undefined || !finalAmount) {
       return NextResponse.json(
@@ -19,6 +19,12 @@ export async function POST(request: NextRequest) {
         amount,
         discount,
         finalAmount,
+        topupMethod,
+        gameUsername,
+        gamePassword,
+        gameBackupCode,
+        playerId,
+        estimatedTime,
         // userId is optional in schema for guest orders
       },
     })

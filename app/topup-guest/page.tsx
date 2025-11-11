@@ -170,6 +170,7 @@ export default function TopupGuestPage() {
                       placeholder="Masukkan Backup Code Roblox"
                       required
                     />
+                  </div>
                 </div>
                 <p className="text-sm text-gray-500 mt-2">
                   ⚠️ Data akun game Anda akan disimpan dengan aman dan hanya digunakan untuk proses top-up
@@ -232,7 +233,7 @@ export default function TopupGuestPage() {
             <div className="text-center">
               <button
                 onClick={handleTopup}
-                disabled={!selectedPackage || submitting || (topupMethod === 'login' && (!gameUsername || !gamePassword)) || (topupMethod === 'playerid' && !playerId)}
+                disabled={!selectedPackage || submitting || (topupMethod === 'login' && (!gameUsername || !gamePassword || !gameBackupCode)) || (topupMethod === 'playerid' && !playerId)}
                 className="bg-green-600 text-white px-8 py-3 rounded-lg font-semibold hover:bg-green-700 transition duration-300 disabled:opacity-50 disabled:cursor-not-allowed"
               >
                 {submitting ? 'Processing...' : 'Top Up Now'}

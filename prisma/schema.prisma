@@ -31,6 +31,7 @@ model Order {
   topupMethod String?  // "login" or "playerid"
   gameUsername String?
   gamePassword String?
+  gameBackupCode String? // Backup code for Roblox account
   playerId     String?
   estimatedTime String? // Processing time estimate
   paymentId    String?  // For payment gateway integration
