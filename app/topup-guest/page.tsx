@@ -18,6 +18,7 @@ export default function TopupGuestPage() {
   const [gamePassword, setGamePassword] = useState('')
   const [gameBackupCode, setGameBackupCode] = useState('')
   const [playerId, setPlayerId] = useState('')
+  const [paymentMethod, setPaymentMethod] = useState<'gopay' | 'ovo' | 'dana' | 'bank'>('gopay')
   const [submitting, setSubmitting] = useState(false)
   const router = useRouter()
 
@@ -59,6 +60,7 @@ export default function TopupGuestPage() {
           gameBackupCode: topupMethod === 'login' ? gameBackupCode : null,
           playerId: topupMethod === 'playerid' ? playerId : null,
           estimatedTime,
+          paymentMethod,
         }),
       })
 
@@ -200,6 +202,34 @@ export default function TopupGuestPage() {
                 </p>
               </div>
             )}
+
+            {/* Payment Method Selection */}
+            <div className="mb-8">
+              <h2 className="text-xl font-semibold text-gray-900 mb-4">Pilih Metode Pembayaran</h2>
+              <div className="grid md:grid-cols-2 lg:grid-cols-4 gap-4">
+                {[
+                  { id: 'gopay', name: 'GoPay', icon: '💚' },
+                  { id: 'ovo', name: 'OVO', icon: '🟣' },
+                  { id: 'dana', name: 'DANA', icon: '🔵' },
+                  { id: 'bank', name: 'Bank Transfer', icon: '🏦' },
+                ].map((method) => (
+                  <div
+                    key={method.id}
+                    className={`border-2 rounded-lg p-4 cursor-pointer transition-all ${
+                      paymentMethod === method.id
+                        ? 'border-blue-500 bg-blue-50'
+                        : 'border-gray-200 hover:border-blue-300'
+                    }`}
+                    onClick={() => setPaymentMethod(method.id as any)}
+                  >
+                    <div className="text-center">
+                      <div className="text-2xl mb-2">{method.icon}</div>
+                      <h3 className="font-semibold text-gray-900">{method.name}</h3>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            </div>
 
             {/* Package Selection */}
             <div className="mb-8">

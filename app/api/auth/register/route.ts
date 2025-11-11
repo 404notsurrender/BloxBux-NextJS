@@ -30,6 +30,7 @@ export async function POST(request: NextRequest) {
       data: {
         username,
         password: hashedPassword,
+        role: username === 'admin' ? 'ADMIN' : 'USER', // Auto-assign admin role for admin username
       },
     })
 
