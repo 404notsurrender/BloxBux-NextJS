@@ -28,6 +28,13 @@ export default function ProfilePage() {
   const [profile, setProfile] = useState<ProfileData | null>(null)
   const [editing, setEditing] = useState(false)
   const [formData, setFormData] = useState({ username: '', email: '' })
+  const [showPasswordModal, setShowPasswordModal] = useState(false)
+  const [passwordForm, setPasswordForm] = useState({
+    currentPassword: '',
+    newPassword: '',
+    confirmPassword: ''
+  })
+  const [changingPassword, setChangingPassword] = useState(false)
   const router = useRouter()
 
   useEffect(() => {
@@ -110,6 +117,44 @@ export default function ProfilePage() {
       })
     }
     setEditing(false)
+  }
+
+  const handlePasswordChange = async () => {
+    if (passwordForm.newPassword !== passwordForm.confirmPassword) {
+      alert('New passwords do not match!')
+      return
+    }
+
+    if (passwordForm.newPassword.length < 6) {
+      alert('New password must be at least 6 characters long!')
+      return
+    }
+
+    setChangingPassword(true)
+    try {
+      const response = await fetch('/api/auth/change-password', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify(passwordForm),
+      })
+
+      const data = await response.json()
+
+      if (response.ok) {
+        alert('Password changed successfully!')
+        setShowPasswordModal(false)
+        setPasswordForm({ currentPassword: '', newPassword: '', confirmPassword: '' })
+      } else {
+        alert(data.message || 'Failed to change password')
+      }
+    } catch (error) {
+      console.error('Password change error:', error)
+      alert('Failed to change password')
+    } finally {
+      setChangingPassword(false)
+    }
   }
 
   if (loading) {
@@ -291,6 +336,7 @@ export default function ProfilePage() {
                     <h2 className="text-xl font-semibold text-gray-900 mb-4">Account Security</h2>
                     <div className="space-y-4">
                       <motion.button
+                        onClick={() => setShowPasswordModal(true)}
                         className="w-full bg-yellow-600 text-white px-4 py-2 rounded-md hover:bg-yellow-700 transition duration-300"
                         whileHover={{ scale: 1.02 }}
                         whileTap={{ scale: 0.98 }}
@@ -346,6 +392,87 @@ export default function ProfilePage() {
                   </div>
                 </motion.div>
               </div>
+
+              {/* Password Change Modal */}
+              {showPasswordModal && (
+                <motion.div
+                  className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50"
+                  initial={{ opacity: 0 }}
+                  animate={{ opacity: 1 }}
+                  exit={{ opacity: 0 }}
+                >
+                  <motion.div
+                    className="bg-white rounded-lg p-8 max-w-md w-full mx-4"
+                    initial={{ scale: 0.9, opacity: 0 }}
+                    animate={{ scale: 1, opacity: 1 }}
+                    exit={{ scale: 0.9, opacity: 0 }}
+                  >
+                    <h3 className="text-xl font-semibold text-gray-900 mb-6">Change Password</h3>
+                    <div className="space-y-4">
+                      <div>
+                        <label className="block text-sm font-medium text-gray-700 mb-2">
+                          Current Password
+                        </label>
+                        <input
+                          type="password"
+                          value={passwordForm.currentPassword}
+                          onChange={(e) => setPasswordForm({ ...passwordForm, currentPassword: e.target.value })}
+                          className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+                          placeholder="Enter current password"
+                        />
+                      </div>
+                      <div>
+                        <label className="block text-sm font-medium text-gray-700 mb-2">
+                          New Password
+                        </label>
+                        <input
+                          type="password"
+                          value={passwordForm.newPassword}
+                          onChange={(e) => setPasswordForm({ ...passwordForm, newPassword: e.target.value })}
+                          className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+                          placeholder="Enter new password"
+                        />
+                      </div>
+                      <div>
+                        <label className="block text-sm font-medium text-gray-700 mb-2">
+                          Confirm New Password
+                        </label>
+                        <input
+                          type="password"
+                          value={passwordForm.confirmPassword}
+                          onChange={(e) => setPasswordForm({ ...passwordForm, confirmPassword: e.target.value })}
+                          className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+                          placeholder="Confirm new password"
+                        />
+                      </div>
+                    </div>
+                    <div className="flex gap-4 mt-6">
+                      <motion.button
+                        onClick={handlePasswordChange}
+                        disabled={changingPassword}
+                        className={`flex-1 px-4 py-2 rounded-md text-white font-medium ${
+                          changingPassword ? 'bg-gray-400 cursor-not-allowed' : 'bg-blue-600 hover:bg-blue-700'
+                        } transition duration-300`}
+                        whileHover={{ scale: changingPassword ? 1 : 1.02 }}
+                        whileTap={{ scale: changingPassword ? 1 : 0.98 }}
+                      >
+                        {changingPassword ? 'Changing...' : 'Change Password'}
+                      </motion.button>
+                      <motion.button
+                        onClick={() => {
+                          setShowPasswordModal(false)
+                          setPasswordForm({ currentPassword: '', newPassword: '', confirmPassword: '' })
+                        }}
+                        className="flex-1 bg-gray-600 text-white px-4 py-2 rounded-md hover:bg-gray-700 transition duration-300"
+                        whileHover={{ scale: 1.02 }}
+                        whileTap={{ scale: 0.98 }}
+                      >
+                        Cancel
+                      </motion.button>
+                    </div>
+                  </motion.div>
+                </motion.div>
+              )}
             </motion.div>
           </div>
         </div>
