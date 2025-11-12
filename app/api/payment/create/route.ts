@@ -1,13 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server'
 import jwt from 'jsonwebtoken'
 import { prisma } from '@/lib/prisma'
-import { DanaPayment } from 'dana-node'
-
-const dana = new DanaPayment({
-  clientId: process.env.DANA_CLIENT_ID!,
-  clientSecret: process.env.DANA_CLIENT_SECRET!,
-  isProduction: false, // Set to true for production
-})
 
 export async function POST(request: NextRequest) {
   try {
@@ -22,20 +15,22 @@ export async function POST(request: NextRequest) {
 
     const decoded = jwt.verify(token, process.env.NEXTAUTH_SECRET!) as {
       userId: number
+      username: string
     }
 
-    const { orderId } = await request.json()
+    const { orderId, paymentMethod } = await request.json()
 
-    if (!orderId) {
+    if (!orderId || !paymentMethod) {
       return NextResponse.json(
-        { message: 'Order ID is required' },
+        { message: 'Order ID and payment method are required' },
         { status: 400 }
       )
     }
 
-    // Get the order
+    // Get order details
     const order = await prisma.order.findUnique({
-      where: { id: parseInt(orderId), userId: decoded.userId },
+      where: { id: parseInt(orderId) },
+      include: { user: true }
     })
 
     if (!order) {
@@ -45,43 +40,92 @@ export async function POST(request: NextRequest) {
       )
     }
 
-    if (order.paymentStatus === 'PAID') {
+    // Check if order belongs to user
+    if (order.userId !== decoded.userId) {
       return NextResponse.json(
-        { message: 'Order already paid' },
-        { status: 400 }
+        { message: 'Unauthorized' },
+        { status: 403 }
       )
     }
 
-    // Create payment request
-    const paymentData = {
-      orderId: `MDZ-${order.id}`,
-      amount: order.finalAmount,
-      currency: 'IDR',
-      description: `Top up ${order.amount} Robux`,
-      callbackUrl: `${process.env.NEXT_PUBLIC_BASE_URL}/api/payment/callback`,
-      redirectUrl: `${process.env.NEXT_PUBLIC_BASE_URL}/orders?payment=success`,
+    // DANA Payment Gateway Integration using dashboard.dana.id API
+    const danaConfig = {
+      merchantId: process.env.DANA_MERCHANT_ID!,
+      secretKey: process.env.DANA_SECRET_KEY!,
+      baseUrl: process.env.DANA_BASE_URL || 'https://dashboard.dana.id'
     }
 
-    const paymentResponse = await dana.createPayment(paymentData)
+    // Create payment request for DANA Hosted Checkout
+    const paymentRequest = {
+      merchantId: danaConfig.merchantId,
+      orderId: `MDZ-${order.id}-${Date.now()}`,
+      amount: Math.round(order.finalAmount),
+      currency: 'IDR',
+      description: `${order.amount} Robux Top-up`,
+      callbackUrl: `${process.env.NEXTAUTH_URL}/api/payment/callback`,
+      redirectUrl: `${process.env.NEXTAUTH_URL}/orders`,
+      paymentMethod: paymentMethod, // 'DANA', 'BANK_TRANSFER', etc.
+      customerInfo: {
+        customerName: order.user?.username || 'Guest',
+        customerEmail: `${order.user?.username || 'guest'}@mdzbux.com`,
+      },
+      items: [
+        {
+          id: `robux-${order.amount}`,
+          name: `${order.amount} Robux Top-up`,
+          price: Math.round(order.finalAmount),
+          quantity: 1
+        }
+      ]
+    }
 
-    // Update order with payment ID
+    // Create signature for DANA API (HMAC-SHA256)
+    const crypto = require('crypto')
+    const signatureString = `${danaConfig.merchantId}${paymentRequest.orderId}${paymentRequest.amount}${danaConfig.secretKey}`
+    const signature = crypto.createHmac('sha256', danaConfig.secretKey).update(signatureString).digest('hex')
+
+    // Call DANA API to create hosted checkout payment
+    const danaResponse = await fetch(`${danaConfig.baseUrl}/api/v2/payment/hosted-checkout`, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'Authorization': `Bearer ${danaConfig.secretKey}`,
+        'X-Signature': signature,
+        'X-Timestamp': new Date().toISOString()
+      },
+      body: JSON.stringify(paymentRequest)
+    })
+
+    if (!danaResponse.ok) {
+      const errorData = await danaResponse.text()
+      console.error('DANA API Error:', errorData)
+      throw new Error('Failed to create DANA payment')
+    }
+
+    const danaData = await danaResponse.json()
+
+    // Update order with payment details
     await prisma.order.update({
       where: { id: order.id },
       data: {
-        paymentId: paymentResponse.paymentId,
-        paymentStatus: 'PENDING',
-      },
+        paymentId: danaData.paymentId || danaData.checkoutUrl,
+        paymentStatus: 'PENDING'
+      }
     })
 
     return NextResponse.json({
       message: 'Payment created successfully',
-      paymentUrl: paymentResponse.paymentUrl,
-      paymentId: paymentResponse.paymentId,
+      payment: {
+        paymentId: danaData.paymentId,
+        paymentUrl: danaData.checkoutUrl || danaData.paymentUrl,
+        orderId: paymentRequest.orderId
+      }
     })
+
   } catch (error) {
     console.error('Payment creation error:', error)
     return NextResponse.json(
-      { message: 'Internal server error' },
+      { message: 'Failed to create payment' },
       { status: 500 }
     )
   }

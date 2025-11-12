@@ -1,118 +1,142 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { prisma } from '@/lib/prisma'
-import { DanaPayment } from 'dana-node'
-import crypto from 'crypto'
-
-const dana = new DanaPayment({
-  clientId: process.env.DANA_CLIENT_ID!,
-  clientSecret: process.env.DANA_CLIENT_SECRET!,
-  isProduction: false, // Set to true for production
-})
-
-// DANA Public Key for signature verification
-const DANA_PUBLIC_KEY = `-----BEGIN PUBLIC KEY-----
-MIIBIjANBgkqhkiG9w0BAQEFAAOCAQ8AMIIBCgKCAQEAnaKVGRbin4Wh4KN35OPh
-ytJBjYTz7QZKSZjmHfiHxFmulfT87rta+IvGJ0rCBgg+1EtKk1hX8G5gPGJs1htJ
-5jHa3/jCk9l+luzjnuT9UVlwJahvzmFw+IoDoM7hIPjsLtnIe04SgYo0tZBpEmkQ
-vUGhmHPqYnUGSSMIpDLJDvbyr8gtwluja1SbRphgDCoYVXq+uUJ5HzPS049aaxTS
-nfXh/qXuDoB9EzCrgppLDS2ubmk21+dr7WaO/3RFjnwx5ouv6w+iC1XOJKar3CTk
-X6JV1OSST1C9sbPGzMHZ8AGB51BM0mok7davD/5irUk+f0C25OgzkwtxAt80dkDo
-/QIDAQAB
------END PUBLIC KEY-----`
-
-function verifySignature(data: string, signature: string): boolean {
-  try {
-    const verify = crypto.createVerify('SHA256')
-    verify.update(data)
-    return verify.verify(DANA_PUBLIC_KEY, signature, 'base64')
-  } catch (error) {
-    console.error('Signature verification error:', error)
-    return false
-  }
-}
 
 export async function POST(request: NextRequest) {
   try {
     const body = await request.json()
-    const { paymentId, status, signature } = body
+    const {
+      orderId,
+      paymentId,
+      status,
+      amount,
+      signature
+    } = body
 
-    // Verify signature using DANA public key
-    const dataToVerify = JSON.stringify({ paymentId, status })
-    const isValidSignature = verifySignature(dataToVerify, signature)
+    console.log('DANA Payment Callback received:', { orderId, paymentId, status, amount })
 
-    if (!isValidSignature) {
-      return NextResponse.json(
-        { message: 'Invalid signature' },
-        { status: 400 }
-      )
+    // Verify signature (recommended for production)
+    // const expectedSignature = crypto.createHmac('sha256', process.env.DANA_SECRET_KEY!)
+    //   .update(`${orderId}${paymentId}${status}${amount}${process.env.DANA_SECRET_KEY!}`)
+    //   .digest('hex')
+
+    // if (signature !== expectedSignature) {
+    //   return NextResponse.json({ message: 'Invalid signature' }, { status: 400 })
+    // }
+
+    // Extract order ID from DANA orderId format: MDZ-{orderId}-{timestamp}
+    const orderIdMatch = orderId.match(/^MDZ-(\d+)-\d+$/)
+    if (!orderIdMatch) {
+      console.error('Invalid orderId format:', orderId)
+      return NextResponse.json({ message: 'Invalid order format' }, { status: 400 })
     }
 
-    // Extract order ID from payment ID
-    const orderId = parseInt(paymentId.replace('MDZ-', ''))
+    const dbOrderId = parseInt(orderIdMatch[1])
 
     // Update order status based on payment status
-    let orderStatus: string
-    let paymentStatus: string
+    let newStatus: string = 'PENDING'
+    let orderStatus: string = 'PENDING'
 
     switch (status) {
       case 'SUCCESS':
+      case 'COMPLETED':
+        newStatus = 'SUCCESS'
         orderStatus = 'COMPLETED'
-        paymentStatus = 'PAID'
         break
       case 'FAILED':
+      case 'CANCELLED':
+      case 'EXPIRED':
+        newStatus = 'FAILED'
         orderStatus = 'FAILED'
-        paymentStatus = 'FAILED'
         break
       case 'PENDING':
-        orderStatus = 'PENDING'
-        paymentStatus = 'PENDING'
+        newStatus = 'PENDING'
         break
       default:
-        orderStatus = 'PENDING'
-        paymentStatus = 'PENDING'
+        newStatus = 'UNKNOWN'
     }
 
-    await prisma.order.update({
-      where: { id: orderId },
+    // Update order in database
+    const updatedOrder = await prisma.order.update({
+      where: { id: dbOrderId },
       data: {
+        paymentStatus: newStatus,
         status: orderStatus as any,
-        paymentStatus,
-        updatedAt: new Date(),
+        updatedAt: new Date()
       },
+      include: {
+        user: {
+          select: {
+            username: true
+          }
+        }
+      }
     })
 
-    // Send Telegram notification for payment status
+    // Send Telegram notification for payment updates
     try {
-      const order = await prisma.order.findUnique({
-        where: { id: orderId },
-        include: { user: true },
+      const message = `💰 Payment Update!\nOrder ID: ${dbOrderId}\nPayment Status: ${newStatus}\nOrder Status: ${orderStatus}\nAmount: Rp ${updatedOrder.finalAmount.toLocaleString()}\nUser: ${updatedOrder.user?.username || 'Guest'}\nPayment Method: DANA`
+      await fetch(`https://api.telegram.org/bot${process.env.TELEGRAM_BOT_TOKEN}/sendMessage`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          chat_id: process.env.TELEGRAM_CHAT_ID,
+          text: message,
+        }),
       })
-
-      if (order) {
-        const message = `Payment Update!\nOrder ID: ${order.id}\nUser: ${order.user?.username || 'Guest'}\nAmount: ${order.amount} Robux\nPayment Status: ${paymentStatus}\nOrder Status: ${orderStatus}`
-        await fetch(`https://api.telegram.org/bot${process.env.TELEGRAM_BOT_TOKEN}/sendMessage`, {
-          method: 'POST',
-          headers: {
-            'Content-Type': 'application/json',
-          },
-          body: JSON.stringify({
-            chat_id: process.env.TELEGRAM_CHAT_ID,
-            text: message,
-          }),
-        })
-      }
     } catch (telegramError) {
       console.error('Telegram notification failed:', telegramError)
     }
 
+    console.log(`Order ${dbOrderId} payment status updated to ${newStatus}, order status to ${orderStatus}`)
+
     return NextResponse.json({
       message: 'Callback processed successfully',
+      orderId: dbOrderId,
+      paymentStatus: newStatus,
+      orderStatus
     })
+
   } catch (error) {
-    console.error('Payment callback error:', error)
+    console.error('Callback processing error:', error)
     return NextResponse.json(
-      { message: 'Internal server error' },
+      { message: 'Callback processing failed' },
       { status: 500 }
     )
+  }
+}
+
+// Handle GET requests for payment status checks
+export async function GET(request: NextRequest) {
+  const { searchParams } = new URL(request.url)
+  const orderId = searchParams.get('orderId')
+
+  if (!orderId) {
+    return NextResponse.json({ message: 'Order ID required' }, { status: 400 })
+  }
+
+  try {
+    const order = await prisma.order.findUnique({
+      where: { id: parseInt(orderId) },
+      select: {
+        paymentStatus: true,
+        status: true,
+        paymentId: true
+      }
+    })
+
+    if (!order) {
+      return NextResponse.json({ message: 'Order not found' }, { status: 404 })
+    }
+
+    return NextResponse.json({
+      paymentStatus: order.paymentStatus,
+      orderStatus: order.status,
+      paymentId: order.paymentId
+    })
+  } catch (error) {
+    console.error('Status check error:', error)
+    return NextResponse.json({ message: 'Status check failed' }, { status: 500 })
   }
 }

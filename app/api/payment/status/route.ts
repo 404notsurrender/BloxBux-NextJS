@@ -1,13 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server'
 import jwt from 'jsonwebtoken'
 import { prisma } from '@/lib/prisma'
-import { DanaPayment } from 'dana-node'
-
-const dana = new DanaPayment({
-  clientId: process.env.DANA_CLIENT_ID!,
-  clientSecret: process.env.DANA_CLIENT_SECRET!,
-  isProduction: false, // Set to true for production
-})
 
 export async function GET(request: NextRequest) {
   try {
@@ -35,7 +28,16 @@ export async function GET(request: NextRequest) {
     }
 
     const order = await prisma.order.findUnique({
-      where: { id: parseInt(orderId), userId: decoded.userId },
+      where: { id: parseInt(orderId) },
+      select: {
+        id: true,
+        paymentStatus: true,
+        status: true,
+        paymentId: true,
+        finalAmount: true,
+        createdAt: true,
+        updatedAt: true
+      }
     })
 
     if (!order) {
@@ -45,49 +47,34 @@ export async function GET(request: NextRequest) {
       )
     }
 
-    if (!order.paymentId) {
+    // Check if order belongs to user
+    const fullOrder = await prisma.order.findUnique({
+      where: { id: parseInt(orderId) }
+    })
+
+    if (fullOrder?.userId !== decoded.userId) {
       return NextResponse.json(
-        { message: 'No payment initiated for this order' },
-        { status: 400 }
+        { message: 'Unauthorized' },
+        { status: 403 }
       )
     }
 
-    // Check payment status from DANA
-    const paymentStatus = await dana.getPaymentStatus(order.paymentId)
-
-    // Update order if status has changed
-    if (paymentStatus.status !== order.paymentStatus) {
-      let orderStatus: string
-
-      switch (paymentStatus.status) {
-        case 'SUCCESS':
-          orderStatus = 'COMPLETED'
-          break
-        case 'FAILED':
-          orderStatus = 'FAILED'
-          break
-        default:
-          orderStatus = order.status
-      }
-
-      await prisma.order.update({
-        where: { id: order.id },
-        data: {
-          status: orderStatus as any,
-          paymentStatus: paymentStatus.status,
-          updatedAt: new Date(),
-        },
-      })
-    }
-
     return NextResponse.json({
-      paymentStatus: paymentStatus.status,
-      orderStatus: order.status,
+      order: {
+        id: order.id,
+        paymentStatus: order.paymentStatus,
+        orderStatus: order.status,
+        paymentId: order.paymentId,
+        amount: order.finalAmount,
+        createdAt: order.createdAt,
+        updatedAt: order.updatedAt
+      }
     })
+
   } catch (error) {
     console.error('Payment status check error:', error)
     return NextResponse.json(
-      { message: 'Internal server error' },
+      { message: 'Failed to check payment status' },
       { status: 500 }
     )
   }
