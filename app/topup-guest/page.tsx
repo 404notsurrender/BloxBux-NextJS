@@ -1,15 +1,7 @@
 'use client'
 
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
 import { useRouter } from 'next/navigation'
-
-const ROBUX_PACKAGES = [
-  { id: 1, amount: 400, price: 50000 },
-  { id: 2, amount: 800, price: 100000 },
-  { id: 3, amount: 1700, price: 200000 },
-  { id: 4, amount: 4500, price: 500000 },
-  { id: 5, amount: 10000, price: 1000000 },
-]
 
 export default function TopupGuestPage() {
   const [selectedPackage, setSelectedPackage] = useState<number | null>(null)
@@ -20,7 +12,45 @@ export default function TopupGuestPage() {
   const [playerId, setPlayerId] = useState('')
   const [paymentMethod, setPaymentMethod] = useState<'gopay' | 'ovo' | 'dana' | 'bank'>('gopay')
   const [submitting, setSubmitting] = useState(false)
+  const [robuxPackages, setRobuxPackages] = useState<any[]>([])
   const router = useRouter()
+
+  useEffect(() => {
+    // Fetch products from admin API
+    const fetchProducts = async () => {
+      try {
+        const response = await fetch('/api/admin/products')
+        if (response.ok) {
+          const data = await response.json()
+          // Convert admin products to guest package format
+          const packages = data.products.map((product: any, index: number) => ({
+            id: index + 1,
+            amount: product.quantity, // Using quantity as amount for display
+            price: product.price,
+            name: product.name,
+            description: product.description
+          }))
+          setRobuxPackages(packages)
+        } else {
+          // Fallback to default packages if API fails
+          setRobuxPackages([
+            { id: 1, amount: 80, price: 15000, name: 'Robux 80', description: '80 Robux for Roblox' },
+            { id: 2, amount: 400, price: 75000, name: 'Robux 400', description: '400 Robux for Roblox' },
+            { id: 3, amount: 800, price: 150000, name: 'Robux 800', description: '800 Robux for Roblox' },
+          ])
+        }
+      } catch (error) {
+        // Fallback to default packages
+        setRobuxPackages([
+          { id: 1, amount: 80, price: 15000, name: 'Robux 80', description: '80 Robux for Roblox' },
+          { id: 2, amount: 400, price: 75000, name: 'Robux 400', description: '400 Robux for Roblox' },
+          { id: 3, amount: 800, price: 150000, name: 'Robux 800', description: '800 Robux for Roblox' },
+        ])
+      }
+    }
+
+    fetchProducts()
+  }, [])
 
   const handleTopup = async () => {
     if (!selectedPackage) return
@@ -37,12 +67,12 @@ export default function TopupGuestPage() {
 
     setSubmitting(true)
     try {
-      const packageData = ROBUX_PACKAGES.find(p => p.id === selectedPackage)
+      const packageData = robuxPackages.find(p => p.id === selectedPackage)
       if (!packageData) return
 
       const discount = 0.01 // 1% discount for guests
       const finalAmount = packageData.price * (1 - discount)
-      const estimatedTime = packageData.amount <= 1700 ? '5-15 menit' : '15-30 menit'
+      const estimatedTime = packageData.amount <= 400 ? '5-15 menit' : '15-30 menit'
 
       const response = await fetch('/api/orders/guest', {
         method: 'POST',
@@ -235,7 +265,7 @@ export default function TopupGuestPage() {
             <div className="mb-8">
               <h2 className="text-xl font-semibold text-gray-900 mb-4">Pilih Paket Robux</h2>
               <div className="grid md:grid-cols-2 lg:grid-cols-3 gap-6">
-                {ROBUX_PACKAGES.map((pkg) => {
+                {robuxPackages.map((pkg) => {
                   const finalPrice = pkg.price * (1 - discount)
                   return (
                     <div
@@ -248,7 +278,8 @@ export default function TopupGuestPage() {
                       onClick={() => setSelectedPackage(pkg.id)}
                     >
                       <div className="text-center">
-                        <h3 className="text-xl font-semibold text-gray-900">{pkg.amount} Robux</h3>
+                        <h3 className="text-xl font-semibold text-gray-900">{pkg.name}</h3>
+                        <p className="text-sm text-gray-600 mt-1">{pkg.description}</p>
                         <p className="text-gray-600 mt-2">Rp {pkg.price.toLocaleString()}</p>
                         <p className="text-green-600 font-semibold mt-1">
                           Rp {finalPrice.toLocaleString()} (with 1% discount)
