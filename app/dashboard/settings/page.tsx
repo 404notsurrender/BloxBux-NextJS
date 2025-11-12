@@ -157,3 +157,133 @@ export default function SettingsPage() {
                   <div className="space-y-4">
                     <div>
                       <label className="block text-sm font-medium text-gray-700 mb-2">
+                        Bot Token
+                      </label>
+                      <input
+                        type="password"
+                        value={settings.telegramBotToken}
+                        onChange={(e) => handleInputChange('telegramBotToken', e.target.value)}
+                        className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+                        placeholder="Enter Telegram bot token"
+                      />
+                    </div>
+                    <div>
+                      <label className="block text-sm font-medium text-gray-700 mb-2">
+                        Chat ID
+                      </label>
+                      <input
+                        type="text"
+                        value={settings.telegramChatId}
+                        onChange={(e) => handleInputChange('telegramChatId', e.target.value)}
+                        className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+                        placeholder="Enter Telegram chat ID"
+                      />
+                    </div>
+                  </div>
+                </motion.div>
+
+                {/* Notification Settings */}
+                <motion.div
+                  className="bg-gray-50 p-6 rounded-lg"
+                  initial={{ opacity: 0, x: -20 }}
+                  animate={{ opacity: 1, x: 0 }}
+                  transition={{ duration: 0.6, delay: 0.4 }}
+                >
+                  <h2 className="text-xl font-semibold text-gray-900 mb-4">Notification Settings</h2>
+                  <div className="space-y-4">
+                    <div className="flex items-center">
+                      <input
+                        type="checkbox"
+                        id="emailNotifications"
+                        checked={settings.emailNotifications}
+                        onChange={(e) => handleInputChange('emailNotifications', e.target.checked)}
+                        className="h-4 w-4 text-blue-600 focus:ring-blue-500 border-gray-300 rounded"
+                      />
+                      <label htmlFor="emailNotifications" className="ml-2 text-sm text-gray-700">
+                        Enable Email Notifications
+                      </label>
+                    </div>
+                    <div className="flex items-center">
+                      <input
+                        type="checkbox"
+                        id="whatsappNotifications"
+                        checked={settings.whatsappNotifications}
+                        onChange={(e) => handleInputChange('whatsappNotifications', e.target.checked)}
+                        className="h-4 w-4 text-blue-600 focus:ring-blue-500 border-gray-300 rounded"
+                      />
+                      <label htmlFor="whatsappNotifications" className="ml-2 text-sm text-gray-700">
+                        Enable WhatsApp Notifications
+                      </label>
+                    </div>
+                  </div>
+                </motion.div>
+
+                {/* System Settings */}
+                <motion.div
+                  className="bg-gray-50 p-6 rounded-lg"
+                  initial={{ opacity: 0, x: -20 }}
+                  animate={{ opacity: 1, x: 0 }}
+                  transition={{ duration: 0.6, delay: 0.5 }}
+                >
+                  <h2 className="text-xl font-semibold text-gray-900 mb-4">System Settings</h2>
+                  <div className="space-y-4">
+                    <div className="flex items-center">
+                      <input
+                        type="checkbox"
+                        id="maintenanceMode"
+                        checked={settings.maintenanceMode}
+                        onChange={(e) => handleInputChange('maintenanceMode', e.target.checked)}
+                        className="h-4 w-4 text-blue-600 focus:ring-blue-500 border-gray-300 rounded"
+                      />
+                      <label htmlFor="maintenanceMode" className="ml-2 text-sm text-gray-700">
+                        Enable Maintenance Mode
+                      </label>
+                    </div>
+                    <div>
+                      <label className="block text-sm font-medium text-gray-700 mb-2">
+                        Member Discount Percentage (%)
+                      </label>
+                      <input
+                        type="number"
+                        min="0"
+                        max="100"
+                        value={settings.discountPercentage}
+                        onChange={(e) => handleInputChange('discountPercentage', parseInt(e.target.value) || 0)}
+                        className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+                      />
+                    </div>
+                    <div>
+                      <label className="block text-sm font-medium text-gray-700 mb-2">
+                        Default Processing Time
+                      </label>
+                      <input
+                        type="text"
+                        value={settings.processingTime}
+                        onChange={(e) => handleInputChange('processingTime', e.target.value)}
+                        className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+                        placeholder="e.g., 5-15 minutes"
+                      />
+                    </div>
+                  </div>
+                </motion.div>
+
+                {/* Payment Gateway Settings */}
+                <motion.div
+                  className="bg-gray-50 p-6 rounded-lg"
+                  initial={{ opacity: 0, x: -20 }}
+                  animate={{ opacity: 1, x: 0 }}
+                  transition={{ duration: 0.6, delay: 0.6 }}
+                >
+                  <h2 className="text-xl font-semibold text-gray-900 mb-4">Payment Gateway Settings</h2>
+                  <div className="text-sm text-gray-600">
+                    Payment gateway integration settings will be available here once implemented.
+                  </div>
+                </motion.div>
+              </div>
+            </motion.div>
+          </div>
+        </div>
+      </div>
+    </div>
+  )
+}
