@@ -1,5 +1,4 @@
 import { NextRequest, NextResponse } from 'next/server'
-import midtransClient from 'midtrans-client'
 import { prisma } from '@/lib/prisma'
 
 export async function POST(request: NextRequest) {
@@ -9,13 +8,7 @@ export async function POST(request: NextRequest) {
 
     console.log('Payment webhook received:', { order_id, transaction_status, fraud_status })
 
-    // Verify webhook signature (recommended for production)
-    // const notificationJson = JSON.stringify(body)
-    // const signature = crypto.createHmac('sha512', process.env.MIDTRANS_SERVER_KEY!)
-    //   .update(notificationJson)
-    //   .digest('hex')
-
-    // Extract order ID from Midtrans order_id format: MDZ-{orderId}-{timestamp}
+    // Extract order ID from order_id format: MDZ-{orderId}-{timestamp}
     const orderIdMatch = order_id.match(/^MDZ-(\d+)-\d+$/)
     if (!orderIdMatch) {
       console.error('Invalid order_id format:', order_id)
