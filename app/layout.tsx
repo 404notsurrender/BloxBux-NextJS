@@ -15,7 +15,7 @@ const geistMono = Geist_Mono({
 
 export const metadata: Metadata = {
   title: "MDZ BloxBux",
-  description: "Website topup Roblox dengan fitur login dan diskon",
+  description: "Website topup Roblox termurah dan terpercaya",
 };
 
 export default function RootLayout({
